@@ -1,18 +1,16 @@
-# These are commands used for the practicals
-
 ## Week 2 - FastQC
 # Create symbolic link to file ie. a shortcut
 ln -s /path/to/file /path/copied/to
-# Start fastqc, report runtime
+# fastqc on .gz file, report runtime
 time fastqc *.gz
 # Check for reads containing the adapter sequence to be trimmed
-	# for Nextera, Illumina PRep, Illumina PCR kits
+# for Nextera, Illumina PRep, Illumina PCR kits
 zgrep CTGTCTCTTATACACATC *.gz | wc
-# Install cutadapt
+# Install python cutadapt
 python3 -m pip install --user --upgrade cutadapt 
 echo PATH=~/.local/bin/:$PATH >> ~/.profile 
 source ~/.profile
-# Cutadapt command
+# Trim adapters using cutadapt
 cutadapt -q 30 -m 50 -a CTGTCTCTTATACACATCT -A CTGTCTCTTATACACATCT --trim-n -o ERR537186_1_trimmed.fastq -p ERR537186_2_trimmed.fastq ERR537186_1.fastq.gz ERR537186_2.fastq.gz
 	# (-q) trim LQ base from 3' end before adapter removal
 	# (-m) Discard trimmed reads shorter than 50
@@ -35,15 +33,15 @@ source /localdisk/software/anaconda3/bin/deactivate NGG2 # to leave env
 # Create symbolic link to E.coli sequence files
 ln -s /localdisk/data/NGG/ecoli_data/6991_1.fastq ./6991_1.fastq
 ln -s /localdisk/data/NGG/ecoli_data/6991_2.fastq ./6991_2.fastq
-# Do QC on sequence data using FastQ
+# fastqc on .fastq files
 fastqc *.fastq
 firefox *.html &
-# Improving data quality
+# Trim sequences using cutadapt
 	# CGGTTCAGCAGGAATGCCGAGCAGTAGATCGGAAGAGCGGTTCAG  overrepped seq in seq 1
 	# expr length "string" = 45 bases = length of the reads??
 	# CGGCATTCCTGCTGAACCGAGCAGTAGATCGGAAGAGCGTCGTGT overrepped seq in seq 2
 cutadapt -a CGGTTCAGCAGGAATGCCGAGCAGTAGATCGGAAGAGCGGTTCAG -A CGGCATTCCTGCTGAACCGAGCAGTAGATCGGAAGAGCGTCGTGT --trim-n -o 6991_1_trimmed.fastq -p 6991_2_trimmed.fastq 6991_1.fastq 6991_2.fastq
-# Use spades in 'standard' mode to assemble the genome
+# Assemble genome using Spades 'standard' mode
 spades.py
 time spades.py -1 6991_1.fastq -2 6991_2.fastq -t 2 -o new_assembly
 ls new_assembly
@@ -54,14 +52,14 @@ wget https://www.dropbox.com/s/m50fs79vs0l9ezi/scaffold_stats.pl
 chmod +x scaffold_stats.pl
 # Report data for all contigs greater than 100 bases
 ~/scaffold_stats.pl -f new_assembly/contigs.fasta -t 100
-# Visualize DB graph
+# Visualize DB graph using Bandage
 Bandage &
-# Tune SPAdes params
+# Tune Spades parameters in 'careful' mode
 time spades.py --careful -1 6991_1.fastq -2 6991_2.fastq -t 2 -o careful_assembly
 	# --careful reduces the number of mismatches and short indels, but increases run time
 	# then run scaffolding and bandage
 ### Mapping to a reference
-# Use BWA to index the assembled genome
+# Index the assembled genome using BWA
 mkdir aligned_reads
 cp XX/contigs.fasta aligned_reads/
 bwa index -a is aligned_reads/contigs.fasta
@@ -91,7 +89,7 @@ source /localdisk/software/anaconda3/bin/activate NGG3
 ln -s /localdisk/data/NGG/pREADS_data-corrected.fasta.gz .
 ln -s /localdisk/data/NGG/CMONO_bothruns_allreads_nanopore.fastq.gz .
 #
-# Do QC of the data using NanoPlot (specifically for longread data) and time the run
+# QC of long-read data using NanoPlot, time the run
 time NanoPlot --fasta pREADS_data-corrected.fasta.gz -o PBio_nanoplot --loglength --N50
 firefox PBio_nanoplot/NanoPlot-report.html &
 # Make initial assembly with wtdbg2, Run C.elegans 40-fold coverage dataset
@@ -153,10 +151,10 @@ ln -s /localdisk/data/NGG/NexteraPE-PE.fa ./NexteraPE-PE.fa
 ln -s /localdisk/data/NGG/taxid_map ./taxid_map
 ln -s /localdisk/data/NGG/genomes.fasta ./genomes.fasta
 ##
-# Evaluate QC of raw data
+# fastqc of raw data
 fastqc -t 2 ERR260505_1.fastq.gz ERR260505_2.fastq.gz
 firefox ERR260505_1_fastqc.html ERR260505_2_fastqc.html &
-# Trim and filter raw reads (Skewer)
+# Trim and filter raw reads using Skewer using specified Fasta file
 mkdir trimmed_reads_skewer
 skewer-0.2.2-linux-x86_64 -n -Q 20 -l 75 -t 2 -m any \
 -x NexteraPE-PE.fa ERR260505_1.fastq.gz ERR260505_2.fastq.gz \
@@ -174,7 +172,7 @@ spades.py --meta --only-assembler -m 30 -t 4 \
 -1 trimmed_reads_skewer/*pair1.fastq \
 -2 trimmed_reads_skewer/*pair2.fastq \
 -o spades_meta
-# Examine output statistics
+# Examine output statistics using scaffold_stats.pl
 ~/scaffold_stats.pl -f spades_standard/scaffolds.fasta -t 100 -h > stats_spades.txt
 ~/scaffold_stats.pl -f spades_meta/scaffolds.fasta -t 100 -h >> stats_spades.txt
 # Rename SPAdes output fasta files
@@ -184,15 +182,15 @@ mv spades_meta/scaffolds.fasta spades_meta/spades_meta.fasta
 # Compare the two assemblies using MetaQUAST
 metaquast -o metaquast/ --no-plots -t 4 \
 spades_standard/spades_std.fasta spades_meta/spades_meta.fasta
-# Genome content is identified from the SILVA rRNA database using BLASTN
+# Genome content is identified from the SILVA rRNA database using BLASTN by default
 # Outputs 30 reference genomes with the best scores
-# Check output
+# Check metaquast output report and taxonomy chart
 firefox metaquast/report.html metaquast/krona_charts/summary_taxonomy_chart.html &
 ##
-# Make database of 120 different bacterial genomes
+# Make database of 120 different bacterial genomes (makeblastdb)
 # Information is added to each sequence such as taxon id
 makeblastdb -taxid_map taxid_map -parse_seqids -in genomes.fasta -dbtype nucl
-# Run the BLAST search of assembled sequences against the database
+# blastn of assembled sequences against the database
 blastn -query spades_meta/spades_meta.fasta \
 -db genomes.fasta -outfmt '6 qseqid staxids bitscore std' \
 -num_threads 2 > blast.out
@@ -200,7 +198,7 @@ blastn -query spades_meta/spades_meta.fasta \
 # Visualize taxonomic contents of metagenome assembly
 # Create an index of the SPAdes assembly 
 bwa index -a is spades_meta/spades_meta.fasta
-# Find the suffix array coordinates of the single-end reads
+# Find the suffix array coordinates of the single-end reads (.sai files)
 mkdir aligned_reads_meta
 bwa aln -t 4 spades_meta/spades_meta.fasta trimmed_reads_skewer/*pair1.fastq \
 > aligned_reads_meta/ERR260505_1.sai
@@ -215,12 +213,12 @@ trimmed_reads_skewer/ERR260505-trimmed-pair1.fastq trimmed_reads_skewer/ERR26050
 samtools view -S -b aligned_reads_meta/ERR260505.sam > aligned_reads_meta/ERR260505.bam
 samtools sort aligned_reads_meta/ERR260505.bam -o aligned_reads_meta/ERR260505.sorted.bam
 samtools index aligned_reads_meta/ERR260505.sorted.bam
-# Collate data in the three files to make a blobDB.json file
+# Collate data in the three files to make a blobDB.json file using blobtools
 blobtools create -i spades_meta/spades_meta.fasta \
 -b aligned_reads_meta/ERR260505.sorted.bam \
 -t blast.out \
 --db nodesDB.txt
-# Draw blob plots [-m? -r?]
+# Draw blob plots [-m? -r?] of .json file
 blobtools plot -i blobDB.json -m -r species
 mkdir blobplots
 mv *.png blobplots/
